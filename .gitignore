@@ -1,0 +1,8 @@
+# Configuration
+config.json
+
+# Local test data
+/testdata/
+
+# Binaries (Go builds output executable files here)
+/go-rewrite
