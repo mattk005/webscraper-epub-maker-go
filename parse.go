@@ -3,7 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
@@ -29,7 +34,7 @@ type BookmarkData struct {
 	StoryTitle string `json:"storyTitle"`
 }
 
-func (v *volume) parseChapters() {
+func (v *volume) parse() {
 	for _, chapterURL := range v.chapterURLs {
 		chapterHTML, err := getHTML(chapterURL)
 		if err != nil {
@@ -47,12 +52,36 @@ func (v *volume) parseChapters() {
 		chap.getBookmarkData(doc)
 
 		v.chapters = append(v.chapters, chap)
+		time.After(500 * time.Millisecond)
 	}
 	if len(v.chapters) > 0 {
 		v.volumeCover = v.chapters[0].bookmarkData.Cover
+		v.volumeTitle = v.chapters[0].bookmarkData.Title
 	} else {
-		fmt.Println("no chapters found (no cover data)")
+		fmt.Println("no chapters found (Cover/Title)")
 	}
+}
+
+func (v volume) saveCover() error {
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", v.volumeCover, nil)
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	filePath := filepath.Join("covers", v.volumeTitle+".png")
+	out, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+	_, err = io.Copy(out, resp.Body)
+	return err
 }
 
 func (c *chapter) getTitle(doc *goquery.Document) (string, error) {

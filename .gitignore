@@ -4,5 +4,9 @@ config.json
 # Local test data
 /testdata/
 
+#covers
+/covers/
+
 # Binaries (Go builds output executable files here)
 /go-rewrite
+

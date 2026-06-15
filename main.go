@@ -32,7 +32,16 @@ func main() {
 		volumes = append(volumes, vol)
 	}
 	for i := range volumes {
-		volumes[i].parseChapters()
+		fmt.Printf("Parsing volumes - loop: %v\n", i)
+		volumes[i].parse()
+		if i == 1 {
+			break
+		}
 		// volumes[i].getCover()
+	}
+	for _, volume := range volumes {
+		fmt.Printf("Volume Name: %s \n", volume.volumeTitle)
+		fmt.Printf("Volume Cover URL: %s \n", volume.volumeCover)
+		fmt.Printf("Volume length (p tags ): %d \n", len(volume.chapterURLs))
 	}
 }
