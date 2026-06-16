@@ -1,11 +1,9 @@
 # Configuration
 config.json
 
-# Local test data
 /testdata/
-
-#covers
 /covers/
+/epub/
 
 # Binaries (Go builds output executable files here)
 /go-rewrite

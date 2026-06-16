@@ -1,9 +1,10 @@
-package main
+package scraper
 
 import (
 	"encoding/json"
 	"net/url"
 	"os"
+	"path/filepath"
 )
 
 //	func saveConfig(c ConfigFile, filename string) error {
@@ -42,7 +43,8 @@ func (c *ConfigFile) ToConfig() (config, error) {
 func getConfig() (config, error) {
 	var cfgFile ConfigFile
 	var cfg config
-	data, err := os.ReadFile("config.json")
+	filePath := filepath.Join("internal", "scraper", "config.json")
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return cfg, err
 	}

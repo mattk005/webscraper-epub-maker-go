@@ -1,4 +1,4 @@
-package main
+package scraper
 
 import (
 	"encoding/json"
@@ -13,17 +13,17 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
-type volume struct {
-	volumeURL   string
-	volumeTitle string
-	volumeCover string
+type Volume struct {
+	VolumeURL   string
+	VolumeTitle string
+	VolumeCover string
 	chapterURLs []string
-	chapters    []chapter
+	Chapters    []Chapter
 }
 
-type chapter struct {
-	chapterTitle string
-	chapterBody  []string
+type Chapter struct {
+	ChapterTitle string
+	ChapterBody  []string
 	bookmarkData BookmarkData
 }
 
@@ -34,8 +34,8 @@ type BookmarkData struct {
 	StoryTitle string `json:"storyTitle"`
 }
 
-func (v *volume) parse() {
-	for _, chapterURL := range v.chapterURLs {
+func (v *Volume) parse() {
+	for i, chapterURL := range v.chapterURLs {
 		chapterHTML, err := getHTML(chapterURL)
 		if err != nil {
 			fmt.Println(err)
@@ -46,25 +46,26 @@ func (v *volume) parse() {
 			fmt.Println(err)
 			return
 		}
-		chap := chapter{}
+		chap := Chapter{}
 		chap.getTitle(doc)
 		chap.getBody(doc)
 		chap.getBookmarkData(doc)
-
-		v.chapters = append(v.chapters, chap)
+		v.Chapters = append(v.Chapters, chap)
+		if i == 0 {
+			v.VolumeCover = v.Chapters[0].bookmarkData.Cover
+			v.VolumeTitle = v.Chapters[0].bookmarkData.StoryTitle
+			v.saveCover()
+		}
 		time.After(500 * time.Millisecond)
 	}
-	if len(v.chapters) > 0 {
-		v.volumeCover = v.chapters[0].bookmarkData.Cover
-		v.volumeTitle = v.chapters[0].bookmarkData.Title
-	} else {
+	if len(v.Chapters) == 0 {
 		fmt.Println("no chapters found (Cover/Title)")
 	}
 }
 
-func (v volume) saveCover() error {
+func (v *Volume) saveCover() error {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", v.volumeCover, nil)
+	req, err := http.NewRequest("GET", v.Chapters[0].bookmarkData.Cover, nil)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
 	if err != nil {
 		return err
@@ -74,30 +75,43 @@ func (v volume) saveCover() error {
 		return err
 	}
 	defer resp.Body.Close()
-	filePath := filepath.Join("covers", v.volumeTitle+".png")
+	filePath := filepath.Join("internal", "scraper", "covers", v.VolumeTitle+".png")
+	filePath = strings.ReplaceAll(filePath, " ", "-")
 	out, err := os.Create(filePath)
 	if err != nil {
 		return err
 	}
 	defer out.Close()
 	_, err = io.Copy(out, resp.Body)
+	v.VolumeCover = filePath
 	return err
 }
 
-func (c *chapter) getTitle(doc *goquery.Document) (string, error) {
+func (c *Chapter) getTitle(doc *goquery.Document) (string, error) {
 	title := doc.Find("h1.chapter__title").First().Text()
-	c.chapterTitle = title
+	c.ChapterTitle = title
 	return title, nil
 }
 
-func (c *chapter) getBody(doc *goquery.Document) ([]string, error) {
+func (c *Chapter) getBody(doc *goquery.Document) ([]string, error) {
 	var results []string
 	content := doc.Find("#chapter-content .chapter-formatting")
 	firstP := content.Find("p").First()
 	rest := firstP.NextUntil("hr")
 	paragraphs := firstP.Union(rest)
 
-	paragraphs.Each(func(i int, s *goquery.Selection) {
+	paragraphs.EachWithBreak(func(i int, s *goquery.Selection) bool {
+		// Check if the current paragraph contains the specific "Previous" link
+		// You can check for the text or the href attribute
+		link := s.Find("a")
+		if link.AttrOr("data-type", "") == "fcn_chapter" {
+			return false // Break the EachWithBreak loop
+		}
+		if s.Is("hr") {
+			return false
+		}
+
+		// Your existing cleanup logic
 		s.RemoveAttr("id")
 		s.RemoveAttr("data-paragraph-id")
 
@@ -108,16 +122,27 @@ func (c *chapter) getBody(doc *goquery.Document) ([]string, error) {
 			}
 			span.ReplaceWithHtml(spanHTML)
 		})
-		outer, err := goquery.OuterHtml(s)
-		if err == nil {
-			results = append(results, outer)
-		}
+
+		outer, _ := goquery.OuterHtml(s)
+		results = append(results, outer)
+
+		return true // Continue to next
 	})
-	c.chapterBody = results
+
+	// paragraphs.Each(func(i int, s *goquery.Selection) {
+	// 	s.RemoveAttr("id")
+	// 	s.RemoveAttr("data-paragraph-id")
+	//
+	// 	outer, err := goquery.OuterHtml(s)
+	// 	if err == nil {
+	// 		results = append(results, outer)
+	// 	}
+	// })
+	c.ChapterBody = results
 	return results, nil
 }
 
-func (c *chapter) getBookmarkData(doc *goquery.Document) (BookmarkData, error) {
+func (c *Chapter) getBookmarkData(doc *goquery.Document) (BookmarkData, error) {
 	var data BookmarkData
 	selection := doc.Find("#fictioneer-bookmark-data")
 	jsonString := selection.Text()
