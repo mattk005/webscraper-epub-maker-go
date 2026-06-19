@@ -18,7 +18,7 @@ func makeEpub(volumes []scraper.Volume) error {
 		e.SetCover(cover, "")
 		for _, c := range v.Chapters {
 			chapterBody := strings.Join(c.ChapterBody, "\n")
-			chapterBody = fmt.Sprintf("<h1>%s</h1>\n", title) + chapterBody
+			chapterBody = fmt.Sprintf("<h1>%s</h1>\n", c.ChapterTitle) + chapterBody
 			e.AddSection(chapterBody, c.ChapterTitle, "", "")
 		}
 		fp := filepath.Join("epub", title+".epub")
