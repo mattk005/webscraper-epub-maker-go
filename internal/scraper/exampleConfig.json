@@ -1,0 +1,7 @@
+{
+  "base_url": "https://someURL.com/",
+  "series_path": "path/to/series",
+  "volume_pattern": "volume",
+  "volume_pattern_stop": "volume-1-",
+  "chapter_pattern": "chapter"
+}

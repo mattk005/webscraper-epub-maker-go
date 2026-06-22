@@ -33,7 +33,10 @@ func ScrapeAndParse() []Volume {
 	}
 	for i := range volumes {
 		fmt.Printf("Parsing volumes - loop: %v\n", i+1)
-		volumes[i].parse()
+		err = volumes[i].parse()
+		if err != nil {
+			fmt.Println(err)
+		}
 		// break // For testing! there's alot of time.After(500 * time.Millisecond) and like 400 chapters
 	}
 	return volumes

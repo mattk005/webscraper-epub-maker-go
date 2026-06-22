@@ -5,6 +5,7 @@ config.json
 testdata/
 covers/
 epub/
+images/
 
 # Binaries (Go builds output executable files here)
 /go-rewrite
