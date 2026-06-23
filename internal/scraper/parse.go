@@ -55,6 +55,7 @@ func (v *Volume) parse() error {
 			fmt.Println(err)
 			return err
 		}
+		// getBody now handles images within paragraphs
 		_, err = chap.getBody(doc)
 		if err != nil {
 			fmt.Println(err)
@@ -65,11 +66,6 @@ func (v *Volume) parse() error {
 			fmt.Println(err)
 			return err
 		}
-		// err = chap.saveIllustration()
-		// if err != nil {
-		// 	fmt.Println(err)
-		// 	return err
-		// }
 		v.Chapters = append(v.Chapters, chap)
 		if i == 0 {
 			v.VolumeCover = v.Chapters[0].bookmarkData.Cover
@@ -88,37 +84,6 @@ func (v *Volume) parse() error {
 	return nil
 }
 
-// func (c *Chapter) saveIllustration() error {
-// 	var link *url.URL
-// 	for i := range c.ChapterBody {
-// 		p := c.ChapterBody[i]
-// 		if strings.Contains(p, "<img") {
-// 			reader := strings.NewReader(p)
-// 			doc, err := goquery.NewDocumentFromReader(reader)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			// TODO fix this
-// 			s := doc.Find("img")
-// 			href, exists := s.Attr("img")
-// 			if !exists {
-// 				return fmt.Errorf("something went wrong with saveIllustration. (jqery and strings.Contains disagree)")
-// 			}
-// 			link, err = url.Parse(href)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			filePath, err := saveHelper(link.String())
-// 			if err != nil {
-// 				return err
-// 			}
-// 			c.ChapterBody[i] = fmt.Sprintf("<p><img src=\"%s\" alt=\"\"/></p>", filePath)
-// 			c.ChapterImages = append(c.ChapterImages, filePath)
-// 		}
-// 	}
-// 	return nil
-// }
-
 func (v *Volume) saveCover() error {
 	filePath, err := saveHelper(v.Chapters[0].bookmarkData.Cover)
 	v.VolumeCover = filePath
@@ -132,15 +97,14 @@ func (c *Chapter) getTitle(doc *goquery.Document) (string, error) {
 }
 
 func (c *Chapter) getBody(doc *goquery.Document) ([]string, error) {
-	var results []string
 	content := doc.Find("#chapter-content .chapter-formatting")
 	firstP := content.Find("p").First()
 	rest := firstP.NextUntil("hr")
 	paragraphs := firstP.AddSelection(rest)
 
+	var results []string
 	paragraphs.EachWithBreak(func(i int, s *goquery.Selection) bool {
 		// Check if the current paragraph contains the specific "Previous" link
-		// You can check for the text or the href attribute
 		link := s.Find("a")
 		if link.AttrOr("data-type", "") == "fcn_chapter" {
 			return false // Break the EachWithBreak loop
@@ -156,7 +120,7 @@ func (c *Chapter) getBody(doc *goquery.Document) ([]string, error) {
 			// 1. Extract the src attribute
 			src, exists := img.Attr("src")
 			if exists && src != "" {
-				// 2. Pass to your helper (return new file path)
+				// 2. Pass to helper (return new file path)
 				filePath, err := saveHelper(src)
 				if err == nil {
 					// 3. Create the new string and replace the element
@@ -171,7 +135,7 @@ func (c *Chapter) getBody(doc *goquery.Document) ([]string, error) {
 			}
 		}
 
-		// Your existing cleanup logic
+		// cleanup logic - probably need to fix this later. (later volumes have more/different attributes)
 		s.RemoveAttr("id")
 		s.RemoveAttr("data-paragraph-id")
 
@@ -208,6 +172,11 @@ func saveHelper(url string) (string, error) {
 
 	pathBits := strings.Split(url, "/")
 	imgName := pathBits[len(pathBits)-1]
+
+	// volume 2 and probably some others were saving with a query
+	if strings.Contains(imgName, "?w=") {
+		imgName = strings.Split(imgName, "?w=")[0]
+	}
 
 	client := &http.Client{}
 	req, err := http.NewRequest("GET", url, nil)
